@@ -6,6 +6,7 @@ import torch.nn as nn
 import pickle
 import os
 import matplotlib.pyplot as plt
+import io
 
 st.set_page_config(page_title="Corporate Store Sales Forecasting Dashboard", layout="wide")
 
@@ -81,7 +82,6 @@ else:
         pred_df = pd.DataFrame(rescaled_preds, columns=store_columns, index=val_df['Date'])
         actual_df = val_df[store_columns].set_index(val_df['Date'])
         
-        # Isolate active stores (average sales >= 5000) to ensure division by tiny near-zero values in closed stores doesn't skew network accuracy statistics
         active_stores = [col for col in store_columns if actual_df[col].mean() >= 5000]
         
         active_mape_values = np.mean(np.abs((actual_df[active_stores] - pred_df[active_stores]) / actual_df[active_stores])) * 100
@@ -130,5 +130,15 @@ else:
         final_output_forecast = appended_master[appended_master['Date'] >= '2026-05-01'][['Date'] + store_columns]
         st.dataframe(final_output_forecast.style.format(precision=2))
         
-        csv_bytes = final_output_forecast.to_csv(index=False).encode('utf-8')
-        st.download_button(label="Download Final May 2026 Predictions (CSV)", data=csv_bytes, file_name="May_2026_Predictions.csv", mime="text/csv")
+        # Export to Excel
+        output = io.BytesIO()
+        with pd.ExcelWriter(output, engine='openpyxl') as writer:
+            final_output_forecast.to_excel(writer, index=False, sheet_name='May_2026_Predictions')
+        excel_bytes = output.getvalue()
+        
+        st.download_button(
+            label="Download Final May 2026 Predictions (Excel)", 
+            data=excel_bytes, 
+            file_name="May_2026_Predictions.xlsx", 
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        )
